@@ -62,6 +62,12 @@ To force a reinstall of the latest release and rerun the DRM fixer even when Hel
 & "$env:LOCALAPPDATA\HeliumUpdater\Update-Helium.ps1" -Force
 ```
 
+To skip the browser installer and run only the DRM fixer:
+
+```powershell
+& "$env:LOCALAPPDATA\HeliumUpdater\Update-Helium.ps1" -OnlyDRM
+```
+
 ### When an Update is Available
 
 1. You'll see a message box asking if you want to install the update

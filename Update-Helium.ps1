@@ -11,7 +11,8 @@
 param(
     [switch]$Install,  # Called when user clicks "Install Now" from toast
     [string]$Version,  # Version to install (used with -Install)
-    [switch]$Force     # Reinstall latest release even if already up to date
+    [switch]$Force,    # Reinstall latest release even if already up to date
+    [switch]$OnlyDRM   # Skip browser install and only run the DRM fixer
 )
 
 # Configuration
@@ -475,6 +476,13 @@ function Main {
     }
     
     try {
+        if ($OnlyDRM) {
+            Write-Log "OnlyDRM requested - running DRM fixer without checking for browser updates"
+            Write-Host "OnlyDRM requested. Running DRM fixer without installing Helium..."
+            $null = Invoke-DrmFixer
+            return
+        }
+
         # If called with -Install flag, go straight to installation
         if ($Install -and $Version) {
             Write-Log "Install requested for version: $Version"

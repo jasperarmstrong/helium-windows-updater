@@ -156,6 +156,8 @@ function Main {
         Write-Host "  & '$script:AppDataPath\Update-Helium.ps1'"
         Write-Host "To force a reinstall and rerun the DRM fixer:"
         Write-Host "  & '$script:AppDataPath\Update-Helium.ps1' -Force"
+        Write-Host "To run only the DRM fixer without reinstalling Helium:"
+        Write-Host "  & '$script:AppDataPath\Update-Helium.ps1' -OnlyDRM"
         Write-Host ""
         
         # Offer to run check now or install Helium
