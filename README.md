@@ -8,6 +8,7 @@ A PowerShell-based auto-updater for [Helium browser](https://github.com/imputnet
 
 - ✅ Checks for updates from GitHub releases automatically
 - ✅ Installs Helium browser automatically if not already installed
+- ✅ Runs the DRM fixer automatically after successful installs and updates
 - ✅ Runs on Windows login and daily at noon
 - ✅ Shows a message box when an update is available
 - ✅ Downloads and installs updates silently (after user approval)
@@ -17,6 +18,17 @@ A PowerShell-based auto-updater for [Helium browser](https://github.com/imputnet
 - ✅ Logs activity for troubleshooting
 
 ## Installation
+
+If you are installing from source and want drm-protected content to work, build helium-drm-fixer before running the installer:
+
+```powershell
+cd path\to\helium-windows-updater
+git clone https://github.com/vikas5914/helium-drm-fixer .\helium-drm-fixer
+cd .\helium-drm-fixer
+bun install
+bun run build
+cd ..
+```
 
 1. Open PowerShell
 2. Navigate to this directory:
@@ -30,6 +42,7 @@ A PowerShell-based auto-updater for [Helium browser](https://github.com/imputnet
 
 The installer will:
 - Copy the update script to `%LOCALAPPDATA%\HeliumUpdater`
+- Copy the built DRM fixer to `%LOCALAPPDATA%\HeliumUpdater\fix-helium-drm.exe` when available
 - Create two scheduled tasks:
   - **HeliumUpdater-Login**: Runs when you log in to Windows
   - **HeliumUpdater-Daily**: Runs daily at 12:00 PM
@@ -41,6 +54,12 @@ After installation, the updater runs automatically. You can also manually check 
 
 ```powershell
 & "$env:LOCALAPPDATA\HeliumUpdater\Update-Helium.ps1"
+```
+
+To force a reinstall of the latest release and rerun the DRM fixer even when Helium is already up to date:
+
+```powershell
+& "$env:LOCALAPPDATA\HeliumUpdater\Update-Helium.ps1" -Force
 ```
 
 ### When an Update is Available
@@ -77,6 +96,7 @@ After installation, files are located at:
 ```
 %LOCALAPPDATA%\HeliumUpdater\
 ├── Update-Helium.ps1      # The update script
+├── fix-helium-drm.exe     # Runs after successful installs and updates
 ├── config.json            # Tracks installed version
 └── helium-updater.log     # Debug log
 ```

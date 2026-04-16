@@ -17,6 +17,8 @@ $ErrorActionPreference = "Stop"
 # Configuration
 $script:AppDataPath = Join-Path $env:LOCALAPPDATA "HeliumUpdater"
 $script:SourcePath = $PSScriptRoot
+$script:DrmFixerRelativePath = "helium-drm-fixer\dist\fix-helium-drm.exe"
+$script:DrmFixerFileName = "fix-helium-drm.exe"
 $script:TaskNameLogin = "HeliumUpdater-Login"
 $script:TaskNameDaily = "HeliumUpdater-Daily"
 
@@ -49,6 +51,16 @@ function Install-Scripts {
     
     Copy-Item $sourcescript $destScript -Force
     Write-Status "Copied Update-Helium.ps1" -Type "SUCCESS"
+
+    $sourceDrmFixer = Join-Path $script:SourcePath $script:DrmFixerRelativePath
+    $destDrmFixer = Join-Path $script:AppDataPath $script:DrmFixerFileName
+
+    if (Test-Path $sourceDrmFixer) {
+        Copy-Item $sourceDrmFixer $destDrmFixer -Force
+        Write-Status "Copied $script:DrmFixerFileName" -Type "SUCCESS"
+    } else {
+        Write-Status "DRM fixer binary not found at $sourceDrmFixer. Run 'bun install' and 'bun run build' in helium-drm-fixer to enable automatic DRM repair." -Type "WARN"
+    }
 }
 
 function Register-ScheduledTasks {
@@ -138,9 +150,12 @@ function Main {
         Write-Host "Helium Updater will now:"
         Write-Host "  - Check for updates when you log in"
         Write-Host "  - Check for updates daily at 12:00 PM"
+        Write-Host "  - Run the bundled DRM fixer after successful installs and updates"
         Write-Host ""
         Write-Host "You can manually check for updates by running:"
         Write-Host "  & '$script:AppDataPath\Update-Helium.ps1'"
+        Write-Host "To force a reinstall and rerun the DRM fixer:"
+        Write-Host "  & '$script:AppDataPath\Update-Helium.ps1' -Force"
         Write-Host ""
         
         # Offer to run check now or install Helium

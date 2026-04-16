@@ -10,7 +10,8 @@
 
 param(
     [switch]$Install,  # Called when user clicks "Install Now" from toast
-    [string]$Version   # Version to install (used with -Install)
+    [string]$Version,  # Version to install (used with -Install)
+    [switch]$Force     # Reinstall latest release even if already up to date
 )
 
 # Configuration
@@ -19,6 +20,7 @@ $script:AppDataPath = Join-Path $env:LOCALAPPDATA "HeliumUpdater"
 $script:ConfigPath = Join-Path $script:AppDataPath "config.json"
 $script:LogPath = Join-Path $script:AppDataPath "helium-updater.log"
 $script:LockPath = Join-Path $script:AppDataPath "updater.lock"
+$script:DrmFixerFileName = "fix-helium-drm.exe"
 $script:VersionPattern = '^\d+\.\d+\.\d+(\.\d+)?$'
 
 # Ensure app data directory exists
@@ -94,6 +96,69 @@ function Save-Config {
     } catch {
         Write-Log "Failed to save config: $_" -Level "ERROR"
     }
+}
+
+function Get-DrmFixerPath {
+    $candidatePaths = @(
+        (Join-Path $script:AppDataPath $script:DrmFixerFileName),
+        (Join-Path $PSScriptRoot "helium-drm-fixer\dist\$script:DrmFixerFileName")
+    )
+
+    foreach ($candidatePath in $candidatePaths) {
+        if (Test-Path $candidatePath -PathType Leaf) {
+            return $candidatePath
+        }
+    }
+
+    return $null
+}
+
+function Invoke-DrmFixer {
+    $drmFixerPath = Get-DrmFixerPath
+    if (-not $drmFixerPath) {
+        Write-Log "DRM fixer binary not found. Skipping DRM repair." -Level "WARN"
+        Write-Host "DRM fixer binary not found. Skipping DRM repair." -ForegroundColor Yellow
+        return $false
+    }
+
+    Write-Log "Running DRM fixer: $drmFixerPath"
+    Write-Host "Running DRM fixer..." -ForegroundColor Cyan
+
+    try {
+        $output = & $drmFixerPath 2>&1
+        $exitCode = $LASTEXITCODE
+
+        foreach ($line in @($output)) {
+            if (-not [string]::IsNullOrWhiteSpace($line)) {
+                Write-Log "DRM fixer: $line"
+            }
+        }
+
+        if ($exitCode -eq 0) {
+            Write-Log "DRM fixer completed successfully"
+            Write-Host "DRM fixer completed successfully." -ForegroundColor Green
+            return $true
+        }
+
+        Write-Log "DRM fixer exited with code: $exitCode" -Level "WARN"
+        Write-Host "DRM fixer failed with exit code $exitCode. See log for details." -ForegroundColor Yellow
+        return $false
+    } catch {
+        Write-Log "DRM fixer failed: $_" -Level "WARN"
+        Write-Host "DRM fixer failed. See log for details." -ForegroundColor Yellow
+        return $false
+    }
+}
+
+function Complete-PostInstallActions {
+    param([string]$InstalledVersion)
+
+    $config = Get-Config
+    $config.installedHeliumVersion = $InstalledVersion
+    $config.lastChecked = (Get-Date).ToString("o")
+    Save-Config -Config $config
+
+    return (Invoke-DrmFixer)
 }
 
 function Get-LatestRelease {
@@ -372,14 +437,13 @@ function Install-Update {
         
         if ($process.ExitCode -eq 0) {
             Write-Log "Installation completed successfully"
-            
-            # Update config with new version (use clean version)
-            $config = Get-Config
-            $config.installedHeliumVersion = $cleanVersion
-            $config.lastChecked = (Get-Date).ToString("o")
-            Save-Config -Config $config
+
+            $drmFixSucceeded = Complete-PostInstallActions -InstalledVersion $cleanVersion
             
             Write-Host "Helium version $cleanVersion installed successfully." -ForegroundColor Green
+            if (-not $drmFixSucceeded) {
+                Write-Host "DRM fixer did not complete successfully. See log for details." -ForegroundColor Yellow
+            }
             
             return $true
         } else {
@@ -435,6 +499,13 @@ function Main {
         $config = Get-Config
         $config.lastChecked = (Get-Date).ToString("o")
         Save-Config -Config $config
+
+        if ($Force) {
+            Write-Log "Force update requested - reinstalling latest release"
+            Write-Host "Force reinstall requested. Installing Helium version $($latestVersion -replace '^v', '')..."
+            $null = Install-Update -Version $latestVersion
+            return
+        }
         
         # If Helium is not installed at all, install it directly
         if (-not (Test-HeliumInstalled) -and [string]::IsNullOrEmpty($currentVersion)) {
